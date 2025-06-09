@@ -99,8 +99,26 @@
         console.error('Playback failed:', error);
       }
     }
+</script>
 
-    function parseM3U(content) {
+    
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Home</title>
+
+    </head>
+		<body>
+
+<body>
+
+<h4>CHANNELS</h4>
+<ul id="playlist">
+
+<script>
+
+function parseM3U(content) {
       const lines = content.split('\n');
       const playlist = [];
       let current = {};
@@ -176,19 +194,6 @@
       loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u');
     });
   </script>
-
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Home</title>
-
-    </head>
-		<body>
-
-<body>
-
-<h4>CHANNELS</h4>
-<ul id="playlist">
 		
 		<div style="margin-top: -35px; text-align: center; padding: 20px 0;">
   <br>
