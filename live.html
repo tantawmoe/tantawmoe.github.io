@@ -1,74 +1,15 @@
 <!DOCTYPE html>      
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    
-  <title>Live TV App</title>
   
   <script src="https://unpkg.com/mux.js/dist/mux.min.js"></script>
   <script src="https://unpkg.com/shaka-player@latest/dist/shaka-player.compiled.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://unpkg.com/hls.js@latest/dist/hls.min.js"></script>
 
-  <style>
-    body {
-      background-color: #111;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      text-align: center;
-	  margin-left:0px;
-      margin-right:0px;
-	  margin-top: 0px;
-   margin: 0px;
-      padding: 0;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    video {
-      width: 100%;
-      max-width: 920px;
-      height: auto;
-      margin-top: 0px;
-      border: 2px solid #444;
-      background: black;
-      display: block;
-      border-radius: 3px;
-	  object-fit: cover;
-    }
-    
-    #playlist {
-      margin-top: 20px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 15px;
-      padding: 0;
-    }
-    #playlist li {
-      list-style: none;
-      cursor: pointer;
-    }
-    #playlist img {
-      width: 85px;
-      height: 85px;
-      border-radius: 20px;
-	  padding: 2px;
-	  margin:5px;
-      border: 2px solid #fff;
-	  object-fit: cover;
-     
-    }
-    #playlist img:hover {
+  
 
-      border-color: #00ff88;
-    }
-    
-    h4 {
-	  align: center;
-      padding-top: 55%;
-      color: #eee;
-    }
+<head>
    
   </style>
 <div style="position: fixed;   top: 0px; width: 100%">
@@ -78,12 +19,7 @@
  </div>
  </body>
 </html>
- 
- <body>
-     
-<div>
     
-<h4>CHANNELS</h4>
 <ul id="playlist">
      
   <script>
@@ -240,6 +176,19 @@
       loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u');
     });
   </script>
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Home</title>
+
+    </head>
+		<body>
+
+<body>
+
+<h4>CHANNELS</h4>
+<ul id="playlist">
   
 		</div>
 		
@@ -257,10 +206,65 @@
   </h5>
 </div>
 
+<style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+	  margin-left:0px;
+      margin-right:0px;
+	  margin-top: 0px;
+   margin: 0px;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    video {
+      width: 100%;
+      max-width: 920px;
+      height: auto;
+      margin-top: 0px;
+      border: 2px solid #444;
+      background: black;
+      display: block;
+      border-radius: 3px;
+	  object-fit: cover;
+    }
+    
+    #playlist {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      padding: 0;
+    }
+    #playlist li {
+      list-style: none;
+      cursor: pointer;
+    }
+    #playlist img {
+      width: 85px;
+      height: 85px;
+      border-radius: 20px;
+	  padding: 2px;
+	  margin:5px;
+      border: 2px solid #fff;
+	  object-fit: cover;
+     
+    }
+    #playlist img:hover {
 
-
-
-
+      border-color: #00ff88;
+    }
+    
+    h4 {
+	  align: center;
+      padding-top: 55%;
+      color: #eee;
+    }
 
 
   <!-- Content protection scripts and styles -->
