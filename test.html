@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shaka Player - Widevine Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.1/dist/shaka-player.compiled.js"></script> 
+  <style>
+    #video {
+      width: 100%;
+      max-width: 800px;
+      margin: auto;
+      display: block;
+    }
+    #playlist {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+    }
+    #playlist li {
+      cursor: pointer;
+      margin: 10px;
+      text-align: center;
+      width: 120px;
+    }
+    #playlist img {
+      width: 100px;
+      height: 60px;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" controls autoplay></video>
+  <ul id="playlist"></ul>
+
+  <script>
+    let player;
+
+    async function requestFullscreenAndLockOrientation(video) {
+      try {
+        if (video.requestFullscreen) await video.requestFullscreen();
+        if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+      } catch (err) {
+        console.warn('Orientation lock failed:', err);
+      }
+    }
+
+    async function init(url, drmData = null) {
+      const video = document.getElementById('video');
+
+      // Install polyfills
+      shaka.polyfill.installAll();
+
+      // Destroy existing player
+      if (player) {
+        await player.destroy();
+      }
+
+      player = new shaka.Player(video);
+
+      // Set headers for manifest/segment requests
+      player.getNetworkingEngine().registerRequestFilter((type, request) => {
+        if (
+          type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+          type === shaka.net.NetworkingEngine.RequestType.SEGMENT
+        ) {
+          request.headers['Referer'] = 'https://your-site.com'; 
+          request.headers['Origin'] = 'https://your-site.com'; 
+        }
+      });
+
+      try {
+        // Handle Widevine or ClearKey
+        if (drmData?.licenseType === 'widevine') {
+          player.configure({
+            drm: {
+              servers: {
+                'com.widevine.alpha': drmData.licenseUrl
+              }
+            }
+          });
+        } else if (drmData?.licenseType === 'clearkey') {
+          player.configure({
+            drm: {
+              clearKeys: { [drmData.keyId]: drmData.key }
+            }
+          });
+        }
+
+        // Load the content
+        await player.load(url);
+        await requestFullscreenAndLockOrientation(video);
+        await video.play();
+        console.log('Playback started');
+      } catch (error) {
+        console.error('Error playing content:', error.code, error.message);
+        alert('Failed to play media: ' + error.message);
+      }
+    }
+
+    function parseM3U(content) {
+      const lines = content.split('\n');
+      const playlist = [];
+      let current = {};
+
+      lines.forEach(line => {
+        line = line.trim();
+
+        if (line.startsWith('#EXTINF')) {
+          const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+          const nameMatch = line.split(',').pop();
+          current = {
+            name: nameMatch || 'Unknown',
+            logo: logoMatch ? logoMatch[1] : ''
+          };
+        } else if (line.startsWith('#KODIPROP') && line.includes('license_type=com.widevine.alpha')) {
+          current.drm = 'widevine';
+        } else if (line.startsWith('#KODIPROP') && line.includes('license_key=')) {
+          const match = line.match(/license_key=(.+)/);
+          if (match) {
+            if (current.drm === 'widevine') {
+              current.licenseUrl = match[1];
+            } else {
+              const [keyId, key] = match[1].split(':');
+              current.drm = 'clearkey';
+              current.keyId = keyId;
+              current.key = key;
+            }
+          }
+        } else if (line && !line.startsWith('#')) {
+          current.url = line;
+          playlist.push({ ...current });
+          current = {};
+        }
+      });
+
+      return playlist;
+    }
+
+    async function loadPlaylist(url) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const channels = parseM3U(text);
+
+        const playlistEl = document.getElementById('playlist');
+        playlistEl.innerHTML = '';
+
+        channels.forEach(channel => {
+          const li = document.createElement('li');
+          li.setAttribute('data-url', channel.url);
+          li.setAttribute('data-drm', channel.drm || 'none');
+
+          if (channel.drm === 'clearkey') {
+            li.setAttribute('data-key-id', channel.keyId);
+            li.setAttribute('data-key', channel.key);
+          } else if (channel.drm === 'widevine') {
+            li.setAttribute('data-license-url', channel.licenseUrl);
+          }
+
+          const img = document.createElement('img');
+          img.src = channel.logo || 'https://via.placeholder.com/100?text=No+Logo';
+          img.alt = channel.name;
+          img.title = channel.name;
+
+          li.appendChild(img);
+          playlistEl.appendChild(li);
+
+          li.addEventListener('click', () => {
+            const url = li.getAttribute('data-url');
+            const drm = li.getAttribute('data-drm');
+
+            let drmData = null;
+
+            if (drm === 'clearkey') {
+              drmData = {
+                licenseType: 'clearkey',
+                keyId: li.getAttribute('data-key-id'),
+                key: li.getAttribute('data-key')
+              };
+            } else if (drm === 'widevine') {
+              drmData = {
+                licenseType: 'widevine',
+                licenseUrl: li.getAttribute('data-license-url')
+              };
+            }
+
+            init(url, drmData);
+          });
+        });
+      } catch (error) {
+        console.error('Failed to load playlist:', error);
+        alert('Could not load playlist.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u');
+    });
+  </script>
+</body>
+</html>
