@@ -36,14 +36,14 @@
       player.configure({
         drm: {
           servers: {
-            'com.widevine.alpha': 'https://cwip-shaka-proxy.appspot.com/no_auth'
+            'com.widevine.alpha': 'https://drm.antik.sk/widevine/key'
           }
         }
       });
 
       // Load the protected stream
       try {
-        await player.load('https://storage.googleapis.com/shaka-demo-assets/angel-one-widevine/dash.mpd');
+        await player.load('https://dash2.antik.sk/stream/nvidia_sport_1/playlist_cenc.mpd');
         console.log('The video has now been loaded!');
       } catch (e) {
         console.error('Error loading video', e);
