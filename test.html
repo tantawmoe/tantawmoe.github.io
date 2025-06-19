@@ -1,56 +1,336 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Shaka Player - Widevine DRM Example</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.8.0/shaka-player.compiled.min.js"></script>
-  <style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/mux.js/dist/mux.min.js"></script>
+    <script src="https://unpkg.com/shaka-player@latest/dist/shaka-player.compiled.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/hls.js@latest/dist/hls.min.js"></script>
+    <style>
     body {
-      background-color: #000;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        background-color: #1a1a1a;
+        color: #f0f0f0;
     }
+
+    #player-container {
+        flex: 3;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background-color: #000;
+    }
+
     video {
-      width: 90%;
-      max-width: 1000px;
+        width: 100%;
+        height: 100%;
+        background-color: #000;
     }
-  </style>
+
+    #playlist-container {
+        flex: 0.6;
+        background-color: #282828;
+        overflow-y: auto;
+        border-left: 2px solid #444;
+    }
+
+    #playlist {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    #playlist li {
+        display: flex;
+        align-items: center;
+        padding: 7px;
+        border-bottom: 1px solid #444;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    #playlist li:hover {
+        background-color: #3a3a3a;
+        border-color: #FF3D00;
+    }
+
+    #playlist li img {
+        width: 85px;
+        height: 85px;
+        margin-right: 10px;
+        border-radius: 20px;
+	padding: 2px;
+	margin:5px;
+        border: 2px solid #fff;
+	object-fit: cover;
+    }
+
+    #playlist li span {
+        font-size: 1.1em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Hide playlist names in landscape mode on all screen sizes */
+    @media (orientation: landscape) {
+        #playlist li span {
+            display: none;
+        }
+
+        #playlist li img {
+            margin-right: 0;
+        }
+    }
+</style>
 </head>
 <body>
-  <video id="video" autoplay controls></video>
+    <div id="player-container">
+        <video id="video" controls poster="https://i.postimg.cc/tCD3hFPw/SCB7.png"></video>
+    </div>
+    <div id="playlist-container">
+        <ul id="playlist">
+            </ul>
+    </div>
 
-  <script>
-    async function initPlayer() {
-      const video = document.getElementById('video');
-      const player = new shaka.Player(video);
+    <script>
+    let player;
+    let hls;
 
-      // Listen for errors
-      player.addEventListener('error', (e) => {
-        console.error('Error code', e.detail.code, 'object', e.detail);
-      });
-
-      // Configure Widevine DRM with Google's public license server
-      player.configure({
-        drm: {
-          servers: {
-            'com.widevine.alpha': 'https://drm.antik.sk/widevine/key'
-          }
-        }
-      });
-
-      // Load the protected stream
+    async function requestFullscreenAndLockOrientation(video) {
       try {
-        await player.load('https://dash2.antik.sk/stream/nvidia_sport_1/playlist_cenc.mpd');
-        console.log('The video has now been loaded!');
-      } catch (e) {
-        console.error('Error loading video', e);
+        if (video.requestFullscreen) await video.requestFullscreen();
+        if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+      } catch (err) {
+        console.warn('Orientation lock failed:', err);
       }
     }
 
-    document.addEventListener('DOMContentLoaded', initPlayer);
+    async function initShaka(url, drmData = null) {
+      const video = document.getElementById('video');
+      shaka.polyfill.installAll();
+
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      if (player) {
+        await player.destroy();
+      }
+
+      player = new shaka.Player(video);
+      player.getNetworkingEngine().registerRequestFilter((type, request) => {
+        if (
+          type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+          type === shaka.net.NetworkingEngine.RequestType.SEGMENT
+        ) {
+          request.headers['Referer'] = 'https://your-site.com';
+          request.headers['Origin'] = 'https://your-site.com';
+          request.headers['User-Agent'] = 'CustomUserAgent/1.0';
+        }
+      });
+
+      try {
+        if (url.endsWith('.m3u8') && !drmData) {
+          await player.unload();
+          player.detach();
+
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = url;
+            video.load();
+            await requestFullscreenAndLockOrientation(video);
+            await video.play();
+            console.log('Native HLS playback');
+          } else if (Hls.isSupported()) {
+            hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+              await requestFullscreenAndLockOrientation(video);
+              await video.play();
+              console.log('Playing via HLS.js');
+            });
+          } else {
+            throw new Error('No HLS playback support');
+          }
+        } else {
+          player.configure({
+            drm: drmData
+              ? { clearKeys: { [drmData.keyId]: drmData.key } }
+              : {}
+          });
+
+          await player.load(url);
+          await requestFullscreenAndLockOrientation(video);
+          await video.play();
+          console.log('Playing with Shaka');
+        }
+      } catch (error) {
+        console.error('Playback failed:', error);
+      }
+    }
+
+    function parseM3U(content) {
+      const lines = content.split('\n');
+      const playlist = [];
+      let current = {};
+
+      lines.forEach(line => {
+        line = line.trim();
+
+        if (line.startsWith('#EXTINF')) {
+          const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+          const nameMatch = line.split(',').pop();
+          current = {
+            name: nameMatch || 'Unknown Channel',
+            logo: logoMatch ? logoMatch[1] : ''
+          };
+        } else if (line.startsWith('#KODIPROP') && line.includes('license_key=')) {
+          const keyInfo = line.match(/license_key=(.*?):(.*)/);
+          if (keyInfo) {
+            current.drm = 'clearkey';
+            current.keyId = keyInfo[1];
+            current.key = keyInfo[2];
+          }
+        } else if (line && !line.startsWith('#')) {
+          current.url = line;
+          playlist.push({ ...current });
+          current = {};
+        }
+      });
+
+      return playlist;
+    }
+
+    async function loadPlaylist(url) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const channels = parseM3U(text);
+
+        const playlistEl = document.getElementById('playlist');
+        playlistEl.innerHTML = '';
+
+        channels.forEach(channel => {
+          const li = document.createElement('li');
+          li.setAttribute('data-url', channel.url);
+          li.setAttribute('data-drm', channel.drm ? 'clearkey' : 'false');
+          if (channel.drm) {
+            li.setAttribute('data-key-id', channel.keyId);
+            li.setAttribute('data-key', channel.key);
+          }
+
+          const img = document.createElement('img');
+          img.src = channel.logo || 'https://via.placeholder.com/100?text=No+Logo';
+          img.alt = channel.name;
+          img.title = channel.name;
+
+          li.appendChild(img);
+          playlistEl.appendChild(li);
+
+          li.addEventListener('click', () => {
+            const url = li.getAttribute('data-url');
+            const isDrm = li.getAttribute('data-drm') === 'clearkey';
+            const keyId = li.getAttribute('data-key-id');
+            const key = li.getAttribute('data-key');
+            const drmData = isDrm ? { keyId, key } : null;
+            initShaka(url, drmData);
+          });
+        });
+      } catch (error) {
+        console.error('Failed to load playlist:', error);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u');
+    });
+  </script>
+<!-- Content protection scripts and styles -->
+  <script id="wpcp_disable_selection" type="text/javascript"> 
+  var image_save_msg='You Can Not Save images!';
+  var no_menu_msg='Context Menu disabled!';
+  var smessage = "Content is protected !!";
+
+  function disableEnterKey(e) {
+    if (e.ctrlKey){
+      var key = window.event ? window.event.keyCode : e.which;
+      if ([97, 65, 67, 99, 88, 120, 26, 85, 86, 83, 43].includes(key)) {
+        alert('You are not allowed to copy content or view source');
+        return false;
+      }
+    }
+  }
+
+  function disable_copy(e) {
+    var elemtype = e.target.nodeName.toUpperCase();
+    var isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor);
+    if (!["TEXT", "TEXTAREA", "INPUT", "PASSWORD", "SELECT", "OPTION", "EMBED"].includes(elemtype)) {
+      if (smessage !== "" && e.detail === 2) alert(smessage);
+      return isSafari ? true : false;
+    }
+  }
+
+  function disable_copy_ie() {
+    var elemtype = window.event.srcElement.nodeName.toUpperCase();
+    if (!["TEXT", "TEXTAREA", "INPUT", "PASSWORD", "SELECT", "OPTION", "EMBED"].includes(elemtype)) {
+      return false;
+    }
+  }
+
+  function reEnable() { return true; }
+
+  document.onkeydown = disableEnterKey;
+  document.onselectstart = disable_copy_ie;
+  if(navigator.userAgent.indexOf('MSIE') === -1){
+    document.onmousedown = disable_copy;
+    document.onclick = reEnable;
+  }
+
+  function disableSelection(target) {
+    if (typeof target.onselectstart != "undefined") target.onselectstart = disable_copy_ie;
+    else if (typeof target.style.MozUserSelect != "undefined") target.style.MozUserSelect = "none";
+    else target.onmousedown = function() { return false; }
+    target.style.cursor = "default";
+  }
+
+  window.onload = function() {
+    disableSelection(document.body);
+  };
+  </script>
+
+  <script id="wpcp_disable_Right_Click" type="text/javascript">
+    document.ondragstart = function() { return false; }
+    document.oncontextmenu = function() { return false; }
+  </script>
+
+  <style>
+    .unselectable {
+      -moz-user-select:none;
+      -webkit-user-select:none;
+      cursor: default;
+    }
+    html {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: rgba(0,0,0,0);
+    }
+  </style>
+
+  <script id="wpcp_css_disable_selection" type="text/javascript">
+    var e = document.getElementsByTagName('body')[0];
+    if(e) { e.setAttribute('unselectable','on'); }
   </script>
 </body>
 </html>
