@@ -1,109 +1,83 @@
-<!DOCTYPE html>      
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live TV</title>
-  
-  <script src="https://unpkg.com/mux.js/dist/mux.min.js"></script>
-  <script src="https://unpkg.com/shaka-player@latest/dist/shaka-player.compiled.js"></script>
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://unpkg.com/hls.js@latest/dist/hls.min.js"></script>
-
-  <style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        display: flex;
-        height: 100vh;
-        overflow: hidden;
-        background-color: #1a1a1a;
-        color: #f0f0f0;
-    }
-
-    #player-container {
-        flex: 3;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        background-color: #000;
-    }
-
-    video {
-        width: 100%;
-        height: 100%;
-        background-color: #000;
-    }
-
-    #playlist-container {
-        flex: 0.6;
-        background-color: #282828;
-        overflow-y: auto;
-        border-left: 2px solid #444;
-    }
-
-    #playlist {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    #playlist li {
-        display: flex;
-        align-items: center;
-        padding: 7px;
-        border-bottom: 1px solid #444;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-
-    #playlist li:hover {
-        background-color: #3a3a3a;
-        border-color: #FF3D00;
-    }
-
-    #playlist li img {
-        width: 85px;
-        height: 85px;
-        margin-right: 10px;
-        border-radius: 20px;
-	padding: 2px;
-	margin:5px;
-        border: 2px solid #fff;
-	object-fit: cover;
-    }
-
-    #playlist li span {
-        font-size: 1.1em;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    /* Hide playlist names in landscape mode on all screen sizes */
-    @media (orientation: landscape) {
-        #playlist li span {
-            display: none;
+    <title>Home</title>
+    <script src="https://unpkg.com/mux.js/dist/mux.min.js"></script>
+    <script src="https://unpkg.com/shaka-player@latest/dist/shaka-player.compiled.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/hls.js@latest/dist/hls.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
         }
-
+        #player-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+        #playlist-container {
+            flex: 1;
+            background-color: #282828;
+            overflow-y: auto;
+            border-left: 1px solid #444;
+        }
+        #playlist {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #playlist li {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #playlist li:hover {
+            background-color: #3a3a3a;
+        }
         #playlist li img {
-            margin-right: 0;
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+            object-fit: contain;
+            border-radius: 5px;
         }
-    }
-</style>
- 
- </head>
+        #playlist li span {
+            font-size: 1.1em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
 <body>
     <div id="player-container">
-        <video id="video" controls poster="https://i.postimg.cc/tCD3hFPw/SCB7.png"></video>
+        <video id="video" controls autoplay></video>
     </div>
     <div id="playlist-container">
         <ul id="playlist">
             </ul>
     </div>
-
-   <script>
+	
+	<script>
     let player;
     let hls;
 
@@ -254,89 +228,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u');
+      loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u'');
     });
   </script>
-
-<!-- Content protection scripts and styles -->
-  <script id="wpcp_disable_selection" type="text/javascript"> 
-  var image_save_msg='You Can Not Save images!';
-  var no_menu_msg='Context Menu disabled!';
-  var smessage = "Content is protected !!";
-
-  function disableEnterKey(e) {
-    if (e.ctrlKey){
-      var key = window.event ? window.event.keyCode : e.which;
-      if ([97, 65, 67, 99, 88, 120, 26, 85, 86, 83, 43].includes(key)) {
-        alert('You are not allowed to copy content or view source');
-        return false;
-      }
-    }
-  }
-
-  function disable_copy(e) {
-    var elemtype = e.target.nodeName.toUpperCase();
-    var isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor);
-    if (!["TEXT", "TEXTAREA", "INPUT", "PASSWORD", "SELECT", "OPTION", "EMBED"].includes(elemtype)) {
-      if (smessage !== "" && e.detail === 2) alert(smessage);
-      return isSafari ? true : false;
-    }
-  }
-
-  function disable_copy_ie() {
-    var elemtype = window.event.srcElement.nodeName.toUpperCase();
-    if (!["TEXT", "TEXTAREA", "INPUT", "PASSWORD", "SELECT", "OPTION", "EMBED"].includes(elemtype)) {
-      return false;
-    }
-  }
-
-  function reEnable() { return true; }
-
-  document.onkeydown = disableEnterKey;
-  document.onselectstart = disable_copy_ie;
-  if(navigator.userAgent.indexOf('MSIE') === -1){
-    document.onmousedown = disable_copy;
-    document.onclick = reEnable;
-  }
-
-  function disableSelection(target) {
-    if (typeof target.onselectstart != "undefined") target.onselectstart = disable_copy_ie;
-    else if (typeof target.style.MozUserSelect != "undefined") target.style.MozUserSelect = "none";
-    else target.onmousedown = function() { return false; }
-    target.style.cursor = "default";
-  }
-
-  window.onload = function() {
-    disableSelection(document.body);
-  };
-  </script>
-
-  <script id="wpcp_disable_Right_Click" type="text/javascript">
-    document.ondragstart = function() { return false; }
-    document.oncontextmenu = function() { return false; }
-  </script>
-
-  <style>
-    .unselectable {
-      -moz-user-select:none;
-      -webkit-user-select:none;
-      cursor: default;
-    }
-    html {
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      -khtml-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-      -webkit-tap-highlight-color: rgba(0,0,0,0);
-    }
-  </style>
-
-  <script id="wpcp_css_disable_selection" type="text/javascript">
-    var e = document.getElementsByTagName('body')[0];
-    if(e) { e.setAttribute('unselectable','on'); }
-  </script>
-
-</body>
+  
+  /body>
 </html>
