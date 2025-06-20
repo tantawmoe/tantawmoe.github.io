@@ -75,204 +75,159 @@
         <ul id="playlist">
             </ul>
     </div>
-	
-<script>
-        let player;
-        let hls;
+	<script>
+    let player;
+    let hls;
 
-        async function requestFullscreenAndLockOrientation(video) {
-            try {
-                if (video.requestFullscreen) await video.requestFullscreen();
-                if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-            } catch (err) {
-                console.warn('Orientation lock failed:', err);
-            }
+    async function requestFullscreenAndLockOrientation(video) {
+      try {
+        if (video.requestFullscreen) await video.requestFullscreen();
+        if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+      } catch (err) {
+        console.warn('Orientation lock failed:', err);
+      }
+    }
+
+    async function initShaka(url, drmData = null) {
+      const video = document.getElementById('video');
+      shaka.polyfill.installAll();
+
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      if (player) {
+        await player.destroy();
+      }
+
+      player = new shaka.Player(video);
+      player.getNetworkingEngine().registerRequestFilter((type, request) => {
+        if (
+          type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+          type === shaka.net.NetworkingEngine.RequestType.SEGMENT
+        ) {
+          request.headers['Referer'] = 'https://your-site.com';
+          request.headers['Origin'] = 'https://your-site.com';
+          request.headers['User-Agent'] = 'CustomUserAgent/1.0';
         }
+      });
 
-        async function initShaka(url, drmData = null) {
-            const video = document.getElementById('video');
-            shaka.polyfill.installAll();
+      try {
+        if (url.endsWith('.m3u8') && !drmData) {
+          await player.unload();
+          player.detach();
 
-            if (hls) {
-                hls.destroy();
-                hls = null;
-            }
-
-            if (player) {
-                await player.destroy();
-            }
-
-            player = new shaka.Player(video);
-            player.getNetworkingEngine().registerRequestFilter((type, request) => {
-                if (
-                    type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
-                    type === shaka.net.NetworkingEngine.RequestType.SEGMENT
-                ) {
-                    request.headers['Referer'] = 'https://your-site.com'; // Replace with your actual referer
-                    request.headers['Origin'] = 'https://your-site.com'; // Replace with your actual origin
-                    request.headers['User-Agent'] = 'CustomUserAgent/1.0';
-                }
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = url;
+            video.load();
+            await requestFullscreenAndLockOrientation(video);
+            await video.play();
+            console.log('Native HLS playback');
+          } else if (Hls.isSupported()) {
+            hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+              await requestFullscreenAndLockOrientation(video);
+              await video.play();
+              console.log('Playing via HLS.js');
             });
+          } else {
+            throw new Error('No HLS playback support');
+          }
+        } else {
+          player.configure({
+            drm: drmData
+              ? { clearKeys: { [drmData.keyId]: drmData.key } }
+              : {}
+          });
 
-            // Listen for error events.
-            player.addEventListener('error', (event) => {
-                console.error('Shaka Error:', event.detail);
-            });
-
-            try {
-                if (url.endsWith('.m3u8') && !drmData) {
-                    await player.unload();
-                    player.detach();
-
-                    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                        video.src = url;
-                        video.load();
-                        await requestFullscreenAndLockOrientation(video);
-                        await video.play();
-                        console.log('Native HLS playback');
-                    } else if (Hls.isSupported()) {
-                        hls = new Hls();
-                        hls.loadSource(url);
-                        hls.attachMedia(video);
-                        hls.on(Hls.Events.MANIFEST_PARSED, async () => {
-                            await requestFullscreenAndLockOrientation(video);
-                            await video.play();
-                            console.log('Playing via HLS.js');
-                        });
-                    } else {
-                        throw new Error('No HLS playback support');
-                    }
-                } else {
-                    const config = {};
-                    if (drmData) {
-                        if (drmData.type === 'clearkey') {
-                            config.drm = {
-                                clearKeys: { [drmData.keyId]: drmData.key }
-                            };
-                        } else if (drmData.type === 'widevine') {
-                            config.drm = {
-                                servers: {
-                                    'com.widevine.alpha': drmData.licenseUri
-                                }
-                            };
-                        }
-                    }
-                    player.configure(config);
-
-                    await player.load(url);
-                    await requestFullscreenAndLockOrientation(video);
-                    await video.play();
-                    console.log('Playing with Shaka');
-                }
-            } catch (error) {
-                console.error('Playback failed:', error);
-            }
+          await player.load(url);
+          await requestFullscreenAndLockOrientation(video);
+          await video.play();
+          console.log('Playing with Shaka');
         }
+      } catch (error) {
+        console.error('Playback failed:', error);
+      }
+    }
 
-        function parseM3U(content) {
-            const lines = content.split('\n');
-            const playlist = [];
-            let current = {};
+    function parseM3U(content) {
+      const lines = content.split('\n');
+      const playlist = [];
+      let current = {};
 
-            lines.forEach(line => {
-                line = line.trim();
+      lines.forEach(line => {
+        line = line.trim();
 
-                if (line.startsWith('#EXTINF')) {
-                    const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-                    const nameMatch = line.split(',').pop();
-                    current = {
-                        name: nameMatch || 'Unknown Channel',
-                        logo: logoMatch ? logoMatch[1] : ''
-                    };
-                } else if (line.startsWith('#KODIPROP')) {
-                    if (line.includes('license_type=com.widevine.alpha')) {
-                        current.drm = 'widevine';
-                    }
-                    const licenseKeyMatch = line.match(/license_key=(.*)/);
-                    if (licenseKeyMatch) {
-                        const keyContent = licenseKeyMatch[1];
-                        if (current.drm === 'widevine' && keyContent.startsWith('http')) {
-                            current.licenseUri = keyContent;
-                        } else if (keyContent.includes(':')) { // Assumes keyId:key for ClearKey
-                            const [keyId, key] = keyContent.split(':');
-                            current.drm = 'clearkey';
-                            current.keyId = keyId;
-                            current.key = key;
-                        }
-                    }
-                } else if (line && !line.startsWith('#')) {
-                    current.url = line;
-                    playlist.push({ ...current });
-                    current = {};
-                }
-            });
-
-            return playlist;
+        if (line.startsWith('#EXTINF')) {
+          const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+          const nameMatch = line.split(',').pop();
+          current = {
+            name: nameMatch || 'Unknown Channel',
+            logo: logoMatch ? logoMatch[1] : ''
+          };
+        } else if (line.startsWith('#KODIPROP') && line.includes('license_key=')) {
+          const keyInfo = line.match(/license_key=(.*?):(.*)/);
+          if (keyInfo) {
+            current.drm = 'clearkey';
+            current.keyId = keyInfo[1];
+            current.key = keyInfo[2];
+          }
+        } else if (line && !line.startsWith('#')) {
+          current.url = line;
+          playlist.push({ ...current });
+          current = {};
         }
+      });
 
-        async function loadPlaylist(url) {
-            try {
-                const response = await fetch(url);
-                const text = await response.text();
-                const channels = parseM3U(text);
+      return playlist;
+    }
 
-                const playlistEl = document.getElementById('playlist');
-                playlistEl.innerHTML = '';
+    async function loadPlaylist(url) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const channels = parseM3U(text);
 
-                channels.forEach(channel => {
-                    const li = document.createElement('li');
-                    li.setAttribute('data-url', channel.url);
-                    
-                    if (channel.drm === 'clearkey') {
-                        li.setAttribute('data-drm-type', 'clearkey');
-                        li.setAttribute('data-key-id', channel.keyId);
-                        li.setAttribute('data-key', channel.key);
-                    } else if (channel.drm === 'widevine') {
-                        li.setAttribute('data-drm-type', 'widevine');
-                        li.setAttribute('data-license-uri', channel.licenseUri);
-                    }
+        const playlistEl = document.getElementById('playlist');
+        playlistEl.innerHTML = '';
 
-                    const img = document.createElement('img');
-                    img.src = channel.logo || 'https://via.placeholder.com/100?text=No+Logo';
-                    img.alt = channel.name;
-                    img.title = channel.name;
+        channels.forEach(channel => {
+          const li = document.createElement('li');
+          li.setAttribute('data-url', channel.url);
+          li.setAttribute('data-drm', channel.drm ? 'clearkey' : 'false');
+          if (channel.drm) {
+            li.setAttribute('data-key-id', channel.keyId);
+            li.setAttribute('data-key', channel.key);
+          }
 
-                    const span = document.createElement('span');
-                    span.textContent = channel.name;
+          const img = document.createElement('img');
+          img.src = channel.logo || 'https://via.placeholder.com/100?text=No+Logo';
+          img.alt = channel.name;
+          img.title = channel.name;
 
-                    li.appendChild(img);
-                    li.appendChild(span);
-                    playlistEl.appendChild(li);
+          li.appendChild(img);
+          playlistEl.appendChild(li);
 
-                    li.addEventListener('click', () => {
-                        const url = li.getAttribute('data-url');
-                        const drmType = li.getAttribute('data-drm-type');
-                        let drmData = null;
-
-                        if (drmType === 'clearkey') {
-                            drmData = {
-                                type: 'clearkey',
-                                keyId: li.getAttribute('data-key-id'),
-                                key: li.getAttribute('data-key')
-                            };
-                        } else if (drmType === 'widevine') {
-                            drmData = {
-                                type: 'widevine',
-                                licenseUri: li.getAttribute('data-license-uri')
-                            };
-                        }
-                        initShaka(url, drmData);
-                    });
-                });
-            } catch (error) {
-                console.error('Failed to load playlist:', error);
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // You can replace this with a local file or another URL if needed
-            loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u'); 
+          li.addEventListener('click', () => {
+            const url = li.getAttribute('data-url');
+            const isDrm = li.getAttribute('data-drm') === 'clearkey';
+            const keyId = li.getAttribute('data-key-id');
+            const key = li.getAttribute('data-key');
+            const drmData = isDrm ? { keyId, key } : null;
+            initShaka(url, drmData);
+          });
         });
-    </script>
+      } catch (error) {
+        console.error('Failed to load playlist:', error);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPlaylist('https://livetv-6pc.pages.dev/playlist.m3u');
+    });
+  </script>
 </body>
 </html>
